@@ -1,0 +1,3 @@
+- Create The Bot
+- Figure out how to store tournament statistics
+- Account Linking
