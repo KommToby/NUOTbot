@@ -9,6 +9,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/kommtoby/NUOTbot/cmd"
 	"github.com/kommtoby/NUOTbot/config"
+	"github.com/kommtoby/NUOTbot/database"
 )
 
 // Bot parameters
@@ -71,6 +72,11 @@ func main() {
 	}
 
 	defer s.Close()
+
+	// Load Database
+	log.Println("Loading database...")
+	database.InitDB()
+	defer database.DB.Close()
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt)
