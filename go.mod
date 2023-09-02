@@ -1,4 +1,4 @@
-module nuotbot
+module github.com/kommtoby/NUOTbot
 
 go 1.21.0
 
