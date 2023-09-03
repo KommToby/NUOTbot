@@ -25,3 +25,6 @@ config.json
 
 # Database
 *.db
+
+# Private apiv2
+*.env
