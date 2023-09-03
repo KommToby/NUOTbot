@@ -6,10 +6,11 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/KommToby/NUOTbot/auth"
+	"github.com/KommToby/NUOTbot/cmd"
+	"github.com/KommToby/NUOTbot/config"
+	"github.com/KommToby/NUOTbot/database"
 	"github.com/bwmarrin/discordgo"
-	"github.com/kommtoby/NUOTbot/cmd"
-	"github.com/kommtoby/NUOTbot/config"
-	"github.com/kommtoby/NUOTbot/database"
 )
 
 // Bot parameters
@@ -33,14 +34,21 @@ func init() {
 	if err != nil {
 		log.Fatalf("Invalid bot parameters: %v", err)
 	}
+
+	err = auth.InitClient(os.Getenv("GOSU_CLIENT_SECRET"), os.Getenv("GOSU_CLIENT_ID"))
+	if err != nil {
+		log.Fatalf("Failed to create gosu client: %v", err)
+	}
 }
 
 var (
 	commands = []*discordgo.ApplicationCommand{
 		cmd.PingCommand,
+		cmd.StatsCommand,
 	}
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		"ping": cmd.PingHandler,
+		"ping":  cmd.PingHandler,
+		"stats": cmd.StatsHandler,
 	}
 )
 
