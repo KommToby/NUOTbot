@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"github.com/KommToby/NUOTbot/auth"
 	"github.com/KommToby/NUOTbot/database"
 	"github.com/bwmarrin/discordgo"
 )
@@ -35,14 +36,15 @@ func StatsHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
+	// example
+	response, _ := auth.GosuClient.GetUserData("7671790")
+
 	// Format the stats and send back to the user
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: stats, // assuming stats is a string at the moment
+			Content: response.Username + stats, // assuming stats is a string at the moment
 		},
 	})
 
-	// example
-	// response, err := auth.GosuClient.GetUserBeatmapScore
 }

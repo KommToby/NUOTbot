@@ -20,8 +20,8 @@
 # Go workspace file
 go.work
 
-# Config
-config.json
+# Config and secrets
+*json
 
 # Database
 *.db

@@ -11,6 +11,7 @@ import (
 	"github.com/KommToby/NUOTbot/config"
 	"github.com/KommToby/NUOTbot/database"
 	"github.com/bwmarrin/discordgo"
+	"github.com/joho/godotenv"
 )
 
 // Bot parameters
@@ -35,6 +36,7 @@ func init() {
 		log.Fatalf("Invalid bot parameters: %v", err)
 	}
 
+	godotenv.Load()
 	err = auth.InitClient(os.Getenv("GOSU_CLIENT_SECRET"), os.Getenv("GOSU_CLIENT_ID"))
 	if err != nil {
 		log.Fatalf("Failed to create gosu client: %v", err)

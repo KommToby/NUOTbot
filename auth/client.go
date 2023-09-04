@@ -10,7 +10,7 @@ var GosuClient *gosu.GosuClient
 
 func InitClient(clientSecret, clientID string) error {
 	if GosuClient != nil {
-		return errors.New("Gosu client already initialized")
+		return errors.New("gosu client already initialized")
 	}
 
 	client, err := gosu.CreateGosuClient(clientSecret, clientID)
