@@ -4,13 +4,18 @@ package database
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 
 	_ "github.com/mattn/go-sqlite3" // SQLite driver
 )
 
 var DB *sql.DB
+
+type PlayerStats struct {
+	MatchesPlayed       int
+	PointsScored        int
+	PointsScoredAgainst int
+}
 
 func InitDB() {
 	var err error
@@ -102,22 +107,49 @@ func AddTeamMember(team_id int, userid int) error {
 	return err
 }
 
-func GetPlayerStats(username string) (string, error) {
-	query := `
-	SELECT count(m.id) as total_matches 
+func GetPlayerStats(username string) (PlayerStats, error) {
+	var stats PlayerStats
+
+	// Query for total matches played
+	queryMatches := `
+	SELECT count(m.id) 
 	FROM matches m 
 	JOIN team_members tm on tm.team_id = m.team1_id OR tm.team_id = m.team2_id 
 	JOIN users u on u.userid = tm.userid 
 	WHERE LOWER(u.username) = LOWER(?)
 	`
-
-	var totalMatches int
-	err := DB.QueryRow(query, username).Scan(&totalMatches)
+	err := DB.QueryRow(queryMatches, username).Scan(&stats.MatchesPlayed)
 	if err != nil {
-		return "", err
+		return stats, err
 	}
 
-	return fmt.Sprintf("%s has played in %d matches.", username, totalMatches), nil
+	// Query for total points scored by the user's team
+	queryPointsScored := `
+	SELECT COALESCE(SUM(CASE WHEN tm.team_id = m.team1_id THEN m.team1_score ELSE m.team2_score END), 0) 
+	FROM matches m 
+	JOIN team_members tm on tm.team_id = m.team1_id OR tm.team_id = m.team2_id 
+	JOIN users u on u.userid = tm.userid 
+	WHERE LOWER(u.username) = LOWER(?)
+	`
+	err = DB.QueryRow(queryPointsScored, username).Scan(&stats.PointsScored)
+	if err != nil {
+		return stats, err
+	}
+
+	// Query for total points scored against the user's team
+	queryPointsAgainst := `
+	SELECT COALESCE(SUM(CASE WHEN tm.team_id = m.team1_id THEN m.team2_score ELSE m.team1_score END), 0) 
+	FROM matches m 
+	JOIN team_members tm on tm.team_id = m.team1_id OR tm.team_id = m.team2_id 
+	JOIN users u on u.userid = tm.userid 
+	WHERE LOWER(u.username) = LOWER(?)
+	`
+	err = DB.QueryRow(queryPointsAgainst, username).Scan(&stats.PointsScoredAgainst)
+	if err != nil {
+		return stats, err
+	}
+
+	return stats, nil
 }
 
 // CheckUserInDatabase checks if a user with the given ID exists in the database.

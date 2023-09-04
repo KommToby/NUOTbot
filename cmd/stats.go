@@ -3,6 +3,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/KommToby/NUOTbot/auth"
 	"github.com/KommToby/NUOTbot/database"
 	"github.com/bwmarrin/discordgo"
@@ -82,6 +84,7 @@ func StatsHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	// Fetch user's stats from the database
+	// Fetch user's stats from the database
 	stats, err := database.GetPlayerStats(username)
 	if err != nil {
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -93,11 +96,21 @@ func StatsHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	// Format the stats and send back to the user
+	// Calculate win percentage based on points scored vs points scored against
+	var winPercentage float64
+	if stats.PointsScored+stats.PointsScoredAgainst != 0 {
+		winPercentage = float64(stats.PointsScored) / float64(stats.PointsScored+stats.PointsScoredAgainst) * 100
+	}
+
+	// Format the stats message
+	message := fmt.Sprintf("%s has played in %d matches with a win percentage of %.2f%% based on points.",
+		username, stats.MatchesPlayed, winPercentage)
+
+	// Respond to the user with the stats message
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: stats, // assuming stats is a string at the moment
+			Content: message,
 		},
 	})
 
