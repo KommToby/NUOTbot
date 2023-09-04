@@ -119,3 +119,37 @@ func GetPlayerStats(username string) (string, error) {
 
 	return fmt.Sprintf("%s has played in %d matches.", username, totalMatches), nil
 }
+
+// CheckUserInDatabase checks if a user with the given ID exists in the database.
+func CheckUserInDatabase(userID int) (bool, error) {
+	query := `SELECT COUNT(userid) FROM users WHERE userid = ?`
+
+	var count int
+	err := DB.QueryRow(query, userID).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
+}
+
+// GetUserNameFromDatabase fetches the username associated with the given user ID.
+func GetUserNameFromDatabase(userID int) (string, error) {
+	query := `SELECT username FROM users WHERE userid = ?`
+
+	var username string
+	err := DB.QueryRow(query, userID).Scan(&username)
+	if err != nil {
+		return "", err
+	}
+
+	return username, nil
+}
+
+// UpdateUsernameInDatabase updates the username for a given user ID.
+func UpdateUsernameInDatabase(userID int, newUsername string) error {
+	query := `UPDATE users SET username = ? WHERE userid = ?`
+
+	_, err := DB.Exec(query, newUsername, userID)
+	return err
+}
