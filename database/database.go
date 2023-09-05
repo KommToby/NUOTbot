@@ -17,6 +17,11 @@ type PlayerStats struct {
 	PointsScoredAgainst int
 }
 
+type User struct {
+	UserID   int    `json:"userid"`
+	Username string `json:"username"`
+}
+
 func InitDB() {
 	var err error
 	DB, err = sql.Open("sqlite3", "./database/database.db")
@@ -184,4 +189,136 @@ func UpdateUsernameInDatabase(userID int, newUsername string) error {
 
 	_, err := DB.Exec(query, newUsername, userID)
 	return err
+}
+
+// GetTopOpponent identifies the player who has scored the most points against the user.
+func GetTopOpponent(username string) (string, error) {
+	query := `
+    WITH UserMatches AS (
+        SELECT m.id, m.team1_id, m.team2_id, 
+               CASE WHEN tm.team_id = m.team1_id THEN m.team1_score ELSE m.team2_score END as user_score,
+               CASE WHEN tm.team_id = m.team1_id THEN m.team2_score ELSE m.team1_score END as opponent_score,
+               CASE WHEN tm.team_id = m.team1_id THEN m.team2_id ELSE m.team1_id END as opponent_team_id
+        FROM matches m
+        JOIN team_members tm on tm.team_id = m.team1_id OR tm.team_id = m.team2_id
+        JOIN users u on u.userid = tm.userid
+        WHERE LOWER(u.username) = LOWER(?) AND (tm.team_id = m.team1_id OR tm.team_id = m.team2_id) AND tm.team_id != opponent_team_id
+    ),
+    OpponentScores AS (
+        SELECT u.username, SUM(um.opponent_score) as total_score
+        FROM UserMatches um
+        JOIN team_members tm ON tm.team_id = um.opponent_team_id
+        JOIN users u on u.userid = tm.userid
+        WHERE u.username != ?
+        GROUP BY u.username
+    )
+    SELECT username
+    FROM OpponentScores
+    WHERE total_score = (SELECT MAX(total_score) FROM OpponentScores)
+    ORDER BY RANDOM()
+    LIMIT 1;
+    `
+
+	var opponentName string
+	err := DB.QueryRow(query, username, username).Scan(&opponentName)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "No opponents found", nil
+		}
+		return "", err
+	}
+
+	return opponentName, nil
+}
+
+// ScanAndAddMissingUsers scans the team_members table for any missing users in the users table and adds them.
+func ScanAndAddMissingUsers() error {
+	// Fetch all userids from the team_members table
+	rows, err := DB.Query("SELECT DISTINCT userid FROM team_members")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	// Iterate over each userid
+	for rows.Next() {
+		var userID int
+		err := rows.Scan(&userID)
+		if err != nil {
+			return err
+		}
+
+		// Check if the userid exists in the users table
+		userExists, err := CheckUserInDatabase(userID)
+		if err != nil {
+			return err
+		}
+
+		// If not exists, add them to the users table
+		if !userExists {
+			// Assuming that you would like to add the user to the `users` table with a blank username
+			// as the actual username will be fetched and updated later from the osu API.
+			err := AddUser(userID, "")
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// Handle any error encountered during iteration
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// GetAllUniqueUserIDsFromTeamMembers fetches all unique user IDs from the team_members table.
+func GetAllUniqueUserIDsFromTeamMembers() ([]int, error) {
+	rows, err := DB.Query("SELECT DISTINCT userid FROM team_members")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var userIDs []int
+	for rows.Next() {
+		var userID int
+		if err := rows.Scan(&userID); err != nil {
+			return nil, err
+		}
+		userIDs = append(userIDs, userID)
+	}
+
+	// Handle any error encountered during iteration
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return userIDs, nil
+}
+
+// GetAllUsers retrieves all users from the users table.
+func GetAllUsers() ([]User, error) {
+	rows, err := DB.Query("SELECT userid, username FROM users")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []User
+	for rows.Next() {
+		var user User
+		if err := rows.Scan(&user.UserID, &user.Username); err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+
+	// Handle any error encountered during iteration
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return users, nil
 }
