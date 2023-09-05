@@ -3,10 +3,9 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/KommToby/NUOTbot/auth"
 	"github.com/KommToby/NUOTbot/database"
+	"github.com/KommToby/NUOTbot/embed"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -84,7 +83,6 @@ func StatsHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	// Fetch user's stats from the database
-	// Fetch user's stats from the database
 	stats, err := database.GetPlayerStats(username)
 	if err != nil {
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -102,15 +100,37 @@ func StatsHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		winPercentage = float64(stats.PointsScored) / float64(stats.PointsScored+stats.PointsScoredAgainst) * 100
 	}
 
-	// Format the stats message
-	message := fmt.Sprintf("%s has played in %d matches with a win percentage of %.2f%% based on points.",
-		username, stats.MatchesPlayed, winPercentage)
+	// Fetch the opponent against whom the user has lost the most.
+	opponent, err := database.GetTopOpponent(username)
+	if err != nil {
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Error fetching top opponent.",
+			},
+		})
+		return
+	}
 
-	// Respond to the user with the stats message
+	// If the opponent's username doesn't exist in the database, similar check and add/update.
+	// Note: This can be optimized by avoiding repeated checks or making a bulk check at the start.
+	opponentExistsInDB, err := auth.GosuClient.GetUserData(opponent)
+	if err == nil {
+		userInDB, err := database.CheckUserInDatabase(opponentExistsInDB.UserCompact.ID)
+		if err == nil && !userInDB {
+			// Add opponent to database
+			database.AddUser(opponentExistsInDB.UserCompact.ID, opponentExistsInDB.Username)
+		}
+	}
+
+	// Create the embed
+	statsEmbed := embed.CreateStatsEmbed(username, stats.MatchesPlayed, winPercentage, opponent)
+
+	// Respond to the user with the embed
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: message,
+			Embeds: []*discordgo.MessageEmbed{statsEmbed},
 		},
 	})
 
