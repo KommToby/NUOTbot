@@ -16,6 +16,8 @@ var LeaderboardCommand = &discordgo.ApplicationCommand{
 	Description: "Returns a leaderboard based on MatchesPlayed, PointsScored, and PointsScoredAgainst",
 }
 
+const EntriesPerPage = 10
+
 func BuildLeaderboard() ([]models.UserLeaderboardEntry, error) {
 	users, err := database.GetAllUsers()
 	if err != nil {
@@ -82,4 +84,16 @@ func followupError(s *discordgo.Session, i *discordgo.InteractionCreate, message
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		Content: message,
 	})
+}
+
+func splitIntoPages(leaderboard []models.UserLeaderboardEntry) [][]models.UserLeaderboardEntry {
+	var pages [][]models.UserLeaderboardEntry
+	for i := 0; i < len(leaderboard); i += EntriesPerPage {
+		end := i + EntriesPerPage
+		if end > len(leaderboard) {
+			end = len(leaderboard)
+		}
+		pages = append(pages, leaderboard[i:end])
+	}
+	return pages
 }
