@@ -123,8 +123,44 @@ func StatsHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	}
 
+	// Fetch the best teammate
+	bestTeammate, err := database.GetTopTeammate(username)
+	if err != nil {
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Error fetching best teammate.",
+			},
+		})
+		return
+	}
+
+	// Fetch the best tournament
+	bestTournament, err := database.GetBestTournament(username)
+	if err != nil {
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Error fetching best tournament.",
+			},
+		})
+		return
+	}
+
+	// Fetch the first tournament
+	firstTournament, err := database.GetFirstTournament(username)
+	if err != nil {
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Error fetching first tournament.",
+			},
+		})
+		return
+	}
+
 	// Create the embed
-	statsEmbed := embed.CreateStatsEmbed(username, stats.MatchesPlayed, winPercentage, opponent)
+	statsEmbed := embed.CreateStatsEmbed(response.Username, stats.MatchesPlayed, winPercentage, opponent, response.AvatarURL, bestTeammate, bestTournament, firstTournament)
 
 	// Respond to the user with the embed
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

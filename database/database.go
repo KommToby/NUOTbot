@@ -231,6 +231,124 @@ func GetTopOpponent(username string) (string, error) {
 	return opponentName, nil
 }
 
+func GetTopTeammate(username string) (string, error) {
+	query := `
+	WITH UserID AS (
+		SELECT userid
+		FROM users
+		WHERE LOWER(username) = LOWER(?)
+	),
+
+	UserTeams AS (
+		SELECT team_id
+		FROM team_members
+		WHERE userid = (SELECT userid FROM UserID)
+	),
+
+	UserTeamMatches AS (
+		SELECT 
+			m.id,
+			m.team1_id, 
+			m.team2_id, 
+			CASE 
+				WHEN ut.team_id = m.team1_id THEN m.team1_score
+				ELSE m.team2_score 
+			END AS user_team_score
+		FROM matches m
+		JOIN UserTeams ut ON m.team1_id = ut.team_id OR m.team2_id = ut.team_id
+	),
+
+	TeammateScores AS (
+		SELECT 
+			tm.userid, 
+			SUM(utm.user_team_score) as total_score
+		FROM UserTeamMatches utm
+		JOIN team_members tm ON tm.team_id = utm.team1_id OR tm.team_id = utm.team2_id
+		WHERE tm.userid != (SELECT userid FROM UserID) -- Exclude the user himself
+		GROUP BY tm.userid
+	)
+
+	SELECT u.username
+	FROM TeammateScores ts
+	JOIN users u ON ts.userid = u.userid
+	ORDER BY ts.total_score DESC, RANDOM() -- If it's a tie, it should be random
+	LIMIT 1;
+	`
+	var teammateName string
+	err := DB.QueryRow(query, username, username).Scan(&teammateName)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "No teammates found", nil
+		}
+		return "", err
+	}
+
+	return teammateName, nil
+}
+
+func GetBestTournament(username string) (string, error) {
+	query := `
+	WITH UserTournamentScores AS (
+		SELECT m.tournament_id,
+			CASE 
+				WHEN tm.team_id = m.team1_id THEN m.team1_score 
+				ELSE m.team2_score 
+			END AS user_score
+		FROM matches m
+		JOIN team_members tm ON tm.team_id = m.team1_id OR tm.team_id = m.team2_id
+		JOIN users u ON u.userid = tm.userid
+		WHERE LOWER(u.username) = LOWER(?)
+	),
+	AggregatedScores AS (
+		SELECT uts.tournament_id, SUM(uts.user_score) AS total_score
+		FROM UserTournamentScores uts
+		GROUP BY uts.tournament_id
+	)
+	SELECT t.tournament_name
+	FROM AggregatedScores ags
+	JOIN tournaments t ON t.tournament_id = ags.tournament_id
+	ORDER BY ags.total_score DESC
+	LIMIT 1;
+	`
+	var tournamentName string
+	err := DB.QueryRow(query, username, username).Scan(&tournamentName)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "No tournaments found", nil
+		}
+		return "", err
+	}
+
+	return tournamentName, nil
+}
+
+func GetFirstTournament(username string) (string, error) {
+	query := `
+    WITH UserTournaments AS (
+		SELECT DISTINCT m.tournament_id
+		FROM matches m
+		JOIN team_members tm ON tm.team_id = m.team1_id OR tm.team_id = m.team2_id
+		JOIN users u ON u.userid = tm.userid
+		WHERE LOWER(u.username) = LOWER(?)
+	)
+	SELECT t.tournament_name
+	FROM UserTournaments ut
+	JOIN tournaments t ON t.tournament_id = ut.tournament_id
+	ORDER BY ut.tournament_id ASC
+	LIMIT 1;	
+	`
+	var tournamentName string
+	err := DB.QueryRow(query, username, username).Scan(&tournamentName)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "No tournaments found", nil
+		}
+		return "", err
+	}
+
+	return tournamentName, nil
+}
+
 // ScanAndAddMissingUsers scans the team_members table for any missing users in the users table and adds them.
 func ScanAndAddMissingUsers() error {
 	// Fetch all userids from the team_members table
