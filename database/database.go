@@ -238,13 +238,13 @@ func GetTopTeammate(username string) (string, error) {
 		FROM users
 		WHERE LOWER(username) = LOWER(?)
 	),
-
+	
 	UserTeams AS (
 		SELECT team_id
 		FROM team_members
 		WHERE userid = (SELECT userid FROM UserID)
 	),
-
+	
 	UserTeamMatches AS (
 		SELECT 
 			m.id,
@@ -252,27 +252,33 @@ func GetTopTeammate(username string) (string, error) {
 			m.team2_id, 
 			CASE 
 				WHEN ut.team_id = m.team1_id THEN m.team1_score
-				ELSE m.team2_score 
+				WHEN ut.team_id = m.team2_id THEN m.team2_score
+				ELSE NULL 
 			END AS user_team_score
 		FROM matches m
-		JOIN UserTeams ut ON m.team1_id = ut.team_id OR m.team2_id = ut.team_id
+		JOIN UserTeams ut ON (m.team1_id = ut.team_id OR m.team2_id = ut.team_id)
 	),
-
+	
 	TeammateScores AS (
 		SELECT 
 			tm.userid, 
-			SUM(utm.user_team_score) as total_score
+			SUM(
+			   CASE 
+				   WHEN tm.team_id = utm.team1_id THEN utm.user_team_score
+				   WHEN tm.team_id = utm.team2_id THEN utm.user_team_score
+				   ELSE NULL 
+			   END) as total_score
 		FROM UserTeamMatches utm
-		JOIN team_members tm ON tm.team_id = utm.team1_id OR tm.team_id = utm.team2_id
+		JOIN team_members tm ON (utm.team1_id = tm.team_id OR utm.team2_id = tm.team_id)
 		WHERE tm.userid != (SELECT userid FROM UserID) -- Exclude the user himself
 		GROUP BY tm.userid
 	)
-
+	
 	SELECT u.username
 	FROM TeammateScores ts
 	JOIN users u ON ts.userid = u.userid
 	ORDER BY ts.total_score DESC, RANDOM() -- If it's a tie, it should be random
-	LIMIT 1;
+	LIMIT 1;	
 	`
 	var teammateName string
 	err := DB.QueryRow(query, username, username).Scan(&teammateName)
