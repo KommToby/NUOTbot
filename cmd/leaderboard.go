@@ -3,10 +3,11 @@
 package cmd
 
 import (
-	"fmt"
 	"sort"
 
 	"github.com/KommToby/NUOTbot/database"
+	"github.com/KommToby/NUOTbot/embed"
+	"github.com/KommToby/NUOTbot/models"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -15,27 +16,20 @@ var LeaderboardCommand = &discordgo.ApplicationCommand{
 	Description: "Returns a leaderboard based on MatchesPlayed, PointsScored, and PointsScoredAgainst",
 }
 
-type UserLeaderboardEntry struct {
-	Username            string
-	MatchesPlayed       int
-	PointsScored        int
-	PointsScoredAgainst int
-}
-
-func BuildLeaderboard() ([]UserLeaderboardEntry, error) {
+func BuildLeaderboard() ([]models.UserLeaderboardEntry, error) {
 	users, err := database.GetAllUsers()
 	if err != nil {
 		return nil, err
 	}
 
-	var leaderboard []UserLeaderboardEntry
+	var leaderboard []models.UserLeaderboardEntry
 	for _, user := range users {
 		stats, err := database.GetPlayerStats(user.Username)
 		if err != nil {
 			return nil, err
 		}
 
-		entry := UserLeaderboardEntry{
+		entry := models.UserLeaderboardEntry{
 			Username:            user.Username,
 			MatchesPlayed:       stats.MatchesPlayed,
 			PointsScored:        stats.PointsScored,
@@ -70,21 +64,12 @@ func LeaderboardHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	// Create a message for the leaderboard.
-	content := "Leaderboard:\n"
-	maxEntries := 10
-	if len(leaderboard) < maxEntries {
-		maxEntries = len(leaderboard)
-	}
-	for index := 0; index < maxEntries; index++ {
-		entry := leaderboard[index]
-		content += fmt.Sprintf("Username: %s, Matches Played: %d, Points Scored: %d, Points Scored Against: %d\n",
-			entry.Username, entry.MatchesPlayed, entry.PointsScored, entry.PointsScoredAgainst)
-	}
+	// Create leaderboard embed
+	embed := embed.CreateLeaderboardEmbed(leaderboard, 10) // assuming top 10
 
-	// Send follow-up with the leaderboard
+	// Send follow-up with the leaderboard embed
 	_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: content,
+		Embeds: []*discordgo.MessageEmbed{embed},
 	})
 	if err != nil {
 		// Handle error if needed
