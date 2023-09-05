@@ -47,10 +47,14 @@ var (
 	commands = []*discordgo.ApplicationCommand{
 		cmd.PingCommand,
 		cmd.StatsCommand,
+		cmd.ScanUsersCommand,
+		cmd.LeaderboardCommand,
 	}
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		"ping":  cmd.PingHandler,
-		"stats": cmd.StatsHandler,
+		"ping":        cmd.PingHandler,
+		"stats":       cmd.StatsHandler,
+		"scanusers":   cmd.ScanUsersHandler,
+		"leaderboard": cmd.LeaderboardHandler,
 	}
 )
 
