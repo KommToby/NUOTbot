@@ -3,9 +3,16 @@
 package cmd
 
 import (
+	"bytes"
+	"fmt"
+	"image/png"
+	"io/ioutil"
+	"os"
+
 	"github.com/KommToby/NUOTbot/auth"
 	"github.com/KommToby/NUOTbot/database"
 	"github.com/KommToby/NUOTbot/embed"
+	"github.com/KommToby/NUOTbot/img"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -24,6 +31,38 @@ var StatsCommand = &discordgo.ApplicationCommand{
 
 func StatsHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	username := i.ApplicationCommandData().Options[0].StringValue()
+
+	images, err := img.LoadImages()
+	if err != nil {
+		fmt.Println("Error loading images:", err)
+		return
+	}
+
+	fmt.Println("Number of images:", len(images))
+	for i, img := range images {
+		if img == nil {
+			fmt.Printf("Image at index %d is nil\n", i)
+		} else {
+			fmt.Printf("Image at index %d: width = %d, height = %d\n", i, img.Bounds().Dx(), img.Bounds().Dy())
+		}
+	}
+
+	// Create the banner
+	banner, err := img.CreateBanner(images)
+	if err != nil {
+		fmt.Println("Error creating banner:", err)
+		return
+	}
+
+	// Save to an output file
+	outFile, err := os.Create("./img/banner_from_stats.png")
+	if err != nil {
+		fmt.Println("Error creating output file:", err)
+		return
+	}
+	defer outFile.Close()
+
+	png.Encode(outFile, banner)
 
 	// api call the username
 	response, err := auth.GosuClient.GetUserData(username)
@@ -83,7 +122,7 @@ func StatsHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	// Fetch user's stats from the database
-	stats, err := database.GetPlayerStats(username)
+	stats, err := database.GetPlayerStats(response.Username)
 	if err != nil {
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -101,7 +140,7 @@ func StatsHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	// Fetch the opponent against whom the user has lost the most.
-	opponent, err := database.GetTopOpponent(username)
+	opponent, err := database.GetTopOpponent(response.Username)
 	if err != nil {
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -124,7 +163,7 @@ func StatsHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	// Fetch the best teammate
-	bestTeammate, err := database.GetTopTeammate(username)
+	bestTeammate, err := database.GetTopTeammate(response.Username)
 	if err != nil {
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -136,7 +175,7 @@ func StatsHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	// Fetch the best tournament
-	bestTournament, err := database.GetBestTournament(username)
+	bestTournament, err := database.GetBestTournament(response.Username)
 	if err != nil {
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -148,7 +187,7 @@ func StatsHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	// Fetch the first tournament
-	firstTournament, err := database.GetFirstTournament(username)
+	firstTournament, err := database.GetFirstTournament(response.Username)
 	if err != nil {
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -159,8 +198,29 @@ func StatsHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	// Create the embed
-	statsEmbed := embed.CreateStatsEmbed(response.Username, stats.MatchesPlayed, winPercentage, opponent, response.AvatarURL, bestTeammate, bestTournament, firstTournament)
+	imageBytes, err := readFileIntoByteSlice("./img/banner_from_stats.png")
+	if err != nil {
+		fmt.Println("Error reading image file:", err)
+		return
+	}
+
+	msg, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
+		Content: "Uploading banner...",
+		Files: []*discordgo.File{
+			{
+				Name:   "banner.png",
+				Reader: bytes.NewReader(imageBytes),
+			},
+		},
+	})
+	if err != nil {
+		fmt.Println("Error uploading image:", err)
+		return
+	}
+
+	bannerURL := msg.Attachments[0].URL
+	fmt.Println(bannerURL)
+	statsEmbed := embed.CreateStatsEmbed(response.Username, stats.MatchesPlayed, winPercentage, opponent, response.AvatarURL, bestTeammate, bestTournament, firstTournament, bannerURL)
 
 	// Respond to the user with the embed
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -169,5 +229,13 @@ func StatsHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Embeds: []*discordgo.MessageEmbed{statsEmbed},
 		},
 	})
+	err = s.ChannelMessageDelete(i.ChannelID, msg.ID)
+	if err != nil {
+		fmt.Println("Error deleting message:", err)
+		return
+	}
+}
 
+func readFileIntoByteSlice(filepath string) ([]byte, error) {
+	return ioutil.ReadFile(filepath)
 }

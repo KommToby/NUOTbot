@@ -8,10 +8,13 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func CreateStatsEmbed(username string, matchesPlayed int, winPercentage float64, topOpponent string, avatarURL string, bestTeammate string, bestTournament string, firstTournament string) *discordgo.MessageEmbed {
+func CreateStatsEmbed(username string, matchesPlayed int, winPercentage float64, topOpponent string, avatarURL string, bestTeammate string, bestTournament string, firstTournament string, bannerURL string) *discordgo.MessageEmbed {
 	return &discordgo.MessageEmbed{
 		Title:       "Player Statistics",
 		Description: fmt.Sprintf("%s's Stats", username),
+		Image: &discordgo.MessageEmbedImage{
+			URL: bannerURL,
+		},
 		Fields: []*discordgo.MessageEmbedField{
 			{
 				Name:   "Matches Played",
