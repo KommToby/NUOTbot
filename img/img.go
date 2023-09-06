@@ -72,25 +72,36 @@ func LoadImages() ([]image.Image, error) {
 }
 
 func CreateBanner(images []image.Image) (image.Image, error) {
-	totalWidth := (len(images)-1)*gap + sumWidths(images)
-	maxHeight := maxImageHeight(images)
+	rows := (len(images) + 4) / 5                // Calculate number of rows
+	totalWidth := 5*gap + sumWidths(images[0:5]) // Assuming first 5 images represent the widest row
+	maxHeightSingleRow := maxImageHeight(images)
+	totalHeight := rows*maxHeightSingleRow + (rows-1)*gap // Total banner height
 
-	banner := image.NewRGBA(image.Rect(0, 0, totalWidth, maxHeight))
+	banner := image.NewRGBA(image.Rect(0, 0, totalWidth, totalHeight))
 
 	// Set banner to be transparent
 	draw.Draw(banner, banner.Bounds(), &image.Uniform{color.Transparent}, image.Point{}, draw.Src)
 
-	x := 0
-	for _, img := range images {
-		r := image.Rect(x, 0, x+img.Bounds().Dx(), maxHeight)
+	x, y := 0, 0
+	counter := 0 // To keep track of number of images in the current row
 
-		// Resize the image if its height is not equal to maxHeight
-		if img.Bounds().Dy() != maxHeight {
-			img = resize.Resize(0, uint(maxHeight), img, resize.Lanczos3)
+	for _, img := range images {
+		if counter >= 5 { // If we have drawn 5 images on the current row, reset x and increase y
+			x = 0
+			y += maxHeightSingleRow + gap
+			counter = 0
+		}
+
+		r := image.Rect(x, y, x+img.Bounds().Dx(), y+img.Bounds().Dy())
+
+		// Resize the image if its height is not equal to maxHeightSingleRow
+		if img.Bounds().Dy() != maxHeightSingleRow {
+			img = resize.Resize(0, uint(maxHeightSingleRow), img, resize.Lanczos3)
 		}
 
 		draw.Draw(banner, r, img, image.Point{}, draw.Over)
 		x += img.Bounds().Dx() + gap
+		counter++
 	}
 
 	return banner, nil
