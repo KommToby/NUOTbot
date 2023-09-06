@@ -28,3 +28,6 @@ go.work
 
 # Private apiv2
 *.env
+
+# Local Banner
+*.png
