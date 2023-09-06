@@ -30,6 +30,15 @@ var StatsCommand = &discordgo.ApplicationCommand{
 }
 
 func StatsHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+	})
+	if err != nil {
+		// Handle error if needed
+		return
+	}
+
 	username := i.ApplicationCommandData().Options[0].StringValue()
 
 	images, err := img.LoadImages()
@@ -223,12 +232,13 @@ func StatsHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	statsEmbed := embed.CreateStatsEmbed(response.Username, stats.MatchesPlayed, winPercentage, opponent, response.AvatarURL, bestTeammate, bestTournament, firstTournament, bannerURL)
 
 	// Respond to the user with the embed
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Embeds: []*discordgo.MessageEmbed{statsEmbed},
-		},
+	_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Embeds: []*discordgo.MessageEmbed{statsEmbed},
 	})
+	if err != nil {
+		// Handle error if needed
+		return
+	}
 	err = s.ChannelMessageDelete(i.ChannelID, msg.ID)
 	if err != nil {
 		fmt.Println("Error deleting message:", err)
