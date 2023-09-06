@@ -446,3 +446,25 @@ func GetAllUsers() ([]User, error) {
 
 	return users, nil
 }
+
+func GetTournamentsWonByUser(userID int) ([]int, error) {
+	var tournamentIDs []int
+
+	query := `SELECT tournament_id FROM tournaments WHERE winning_team_id IN 
+              (SELECT team_id FROM team_members WHERE userid=?)`
+	rows, err := DB.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var tournamentID int
+		if err := rows.Scan(&tournamentID); err != nil {
+			return nil, err
+		}
+		tournamentIDs = append(tournamentIDs, tournamentID)
+	}
+
+	return tournamentIDs, nil
+}

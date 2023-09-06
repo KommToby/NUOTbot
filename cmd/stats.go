@@ -41,38 +41,6 @@ func StatsHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	username := i.ApplicationCommandData().Options[0].StringValue()
 
-	images, err := img.LoadImages()
-	if err != nil {
-		fmt.Println("Error loading images:", err)
-		return
-	}
-
-	fmt.Println("Number of images:", len(images))
-	for i, img := range images {
-		if img == nil {
-			fmt.Printf("Image at index %d is nil\n", i)
-		} else {
-			fmt.Printf("Image at index %d: width = %d, height = %d\n", i, img.Bounds().Dx(), img.Bounds().Dy())
-		}
-	}
-
-	// Create the banner
-	banner, err := img.CreateBanner(images)
-	if err != nil {
-		fmt.Println("Error creating banner:", err)
-		return
-	}
-
-	// Save to an output file
-	outFile, err := os.Create("./img/banner_from_stats.png")
-	if err != nil {
-		fmt.Println("Error creating output file:", err)
-		return
-	}
-	defer outFile.Close()
-
-	png.Encode(outFile, banner)
-
 	// api call the username
 	response, err := auth.GosuClient.GetUserData(username)
 	if err != nil {
@@ -206,6 +174,44 @@ func StatsHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		})
 		return
 	}
+
+	tournamentIDs, err := database.GetTournamentsWonByUser(userID)
+	if err != nil {
+		// Handle error
+	}
+
+	// Load images for tournaments won by the user
+	images, err := img.LoadImagesForTournaments(tournamentIDs)
+	if err != nil {
+		fmt.Println("Error loading images:", err)
+		return
+	}
+
+	fmt.Println("Number of images:", len(images))
+	for i, img := range images {
+		if img == nil {
+			fmt.Printf("Image at index %d is nil\n", i)
+		} else {
+			fmt.Printf("Image at index %d: width = %d, height = %d\n", i, img.Bounds().Dx(), img.Bounds().Dy())
+		}
+	}
+
+	// Create the banner
+	banner, err := img.CreateBanner(images)
+	if err != nil {
+		fmt.Println("Error creating banner:", err)
+		return
+	}
+
+	// Save to an output file
+	outFile, err := os.Create("./img/banner_from_stats.png")
+	if err != nil {
+		fmt.Println("Error creating output file:", err)
+		return
+	}
+	defer outFile.Close()
+
+	png.Encode(outFile, banner)
 
 	imageBytes, err := readFileIntoByteSlice("./img/banner_from_stats.png")
 	if err != nil {

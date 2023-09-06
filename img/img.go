@@ -16,10 +16,31 @@ import (
 
 const gap = 10 // The gap between images
 
-func LoadImages() ([]image.Image, error) {
+// tournament images
+var tournamentToImageMap = map[int]string{
+	1:  "NUOT1.jpg",
+	2:  "NUOT2.jpg",
+	3:  "NUOT3B1.jpg",
+	4:  "NUOT3B2.jpg",
+	5:  "NUOT3B3.jpg",
+	6:  "NUOT3B4.jpg",
+	7:  "NUOT4.jpg",
+	8:  "NUOT5.jpg",
+	9:  "NUOT6.jpg",
+	10: "NUOT7.jpg",
+	12: "NUOT9.jpg",
+	13: "NUOT91.jpg",
+	14: "NUOT92.jpg",
+	16: "NUOT93.jpg",
+	17: "NUOT94B1.jpg",
+	18: "NUOT94B2.jpg",
+	19: "NUOT94B3.jpg",
+	20: "NUOT95.jpg",
+}
+
+func LoadImagesForTournaments(tournamentIDs []int) ([]image.Image, error) {
 	var images []image.Image
 
-	// Determine the directory of this file
 	_, currentFile, _, ok := runtime.Caller(0)
 	if !ok {
 		fmt.Println("Error determining current directory")
@@ -28,15 +49,15 @@ func LoadImages() ([]image.Image, error) {
 	currentDir := filepath.Dir(currentFile)
 	fmt.Println("Current Directory:", currentDir)
 
-	files, err := filepath.Glob(filepath.Join(currentDir, "*.jpg"))
-	if err != nil {
-		fmt.Println("Error during filepath.Glob:", err)
-		return nil, err
-	}
+	for _, tID := range tournamentIDs {
+		filename, exists := tournamentToImageMap[tID]
+		if !exists {
+			fmt.Println("Tournament ID does not have associated image:", tID)
+			continue
+		}
 
-	fmt.Println("Found Files:", files)
+		file := filepath.Join(currentDir, filename)
 
-	for _, file := range files {
 		infile, err := os.Open(file)
 		if err != nil {
 			fmt.Println("Error opening file:", err)
@@ -72,8 +93,20 @@ func LoadImages() ([]image.Image, error) {
 }
 
 func CreateBanner(images []image.Image) (image.Image, error) {
-	rows := (len(images) + 4) / 5                // Calculate number of rows
-	totalWidth := 5*gap + sumWidths(images[0:5]) // Assuming first 5 images represent the widest row
+	numImages := len(images)
+	rows := (numImages + 4) / 5
+	totalWidth := 0
+	if numImages < 5 {
+		totalWidth = gap*numImages + sumWidths(images)
+	} else {
+		totalWidth = 5*gap + sumWidths(images[0:5])
+	}
+
+	// If there are less than 5 images, set the total width to 960 pixels
+	if numImages < 5 {
+		totalWidth = 960
+	}
+
 	maxHeightSingleRow := maxImageHeight(images)
 	totalHeight := rows*maxHeightSingleRow + (rows-1)*gap // Total banner height
 
